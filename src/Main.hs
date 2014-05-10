@@ -34,6 +34,8 @@ import Quid2.Util.Email(email,titto)
 
 t = main
 
+x = checkServices [AService $ PortService "quid2.mooo.com" 22]
+
 -- TODO: add sound warning.
 -- BUG: does not warn if backup or git fails (TO CHK: actually cron sends a message? that I ignore).
 
@@ -73,7 +75,7 @@ ss = [AService Quid2Service
      ,AService $ WebService "kamus.it" "http://kamus.it" "Assini's Family"
      ,AService $ WebService "massimoassini.quicquid.org" "http://massimoassini.quicquid.org" "figura femminile"
      ,AService $ WebService "ska.quicquid.org" "http://ska.quicquid.org/bottom.html" "PDF"
-     ,AService $ PortService "quid2.mooo.com" 23
+     ,AService $ PortService "quid2.mooo.com" 22
      ]
 
 -- Send error or ok message via Google Cloud Messaging for Android: requires a client side app.
