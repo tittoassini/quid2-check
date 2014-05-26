@@ -75,7 +75,9 @@ ss = [AService Quid2Service
      ,AService $ WebService "kamus.it" "http://kamus.it" "Assini's Family"
      ,AService $ WebService "massimoassini.quicquid.org" "http://massimoassini.quicquid.org" "figura femminile"
      ,AService $ WebService "ska.quicquid.org" "http://ska.quicquid.org/bottom.html" "PDF"
-     ,AService $ PortService "quid2.mooo.com" 22
+     --,AService $ PortService "quid2.mooo.com" 2
+     ,AService $ PortService "quid2.com" 22
+     ,AService $ PortService "nano.quid2.com" 22      
      ]
 
 -- Send error or ok message via Google Cloud Messaging for Android: requires a client side app.
