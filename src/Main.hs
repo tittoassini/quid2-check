@@ -73,13 +73,14 @@ checkCmd sendOK = do
     then when sendOK $ sendReport $ "OK. All services are up."
     else sendReport $ unwords ["PROBLEM.",concatMap (\(s,Just r) -> unwords ["\n",s,"->",r]) rs]
 
-ss = [AService Quid2Service
-     ,AService FinanceService
+ss = [
+     AService FinanceService
+     --,AService Quid2Service
      --,AService $ WebService "quid2.org web" "http://quid2.org/js/quid2/ui/Tabs.js" "quid2.ui.Tab"
-    , quid2Com "quid2.org"
-    , quid2Com "quid2.com"
-    , quid2Com "quid2.biz"
-    , quid2Com "quid2.net"
+     , quid2Com "quid2.org"
+     , quid2Com "quid2.com"
+     , quid2Com "quid2.biz"
+     , quid2Com "quid2.net"
      ,quid2Com "quicquid.org"
 
      ,AService $ WebService "nano web" "http://nano.quid2.org:8080" "Service quid2-titto"
