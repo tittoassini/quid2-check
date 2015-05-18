@@ -16,7 +16,6 @@ import Data.String
 import Distribution.Simple.Utils()
 import Distribution.Verbosity
 import Control.Monad
-import Network.HTTP
 import Control.Applicative
 import Control.Exception
 import Control.Arrow
@@ -31,54 +30,69 @@ import qualified Data.Text as T
 import Quid2.Util.Time(timeOut,secs)
 import Quid2.Util.String(between)
 import Quid2.Util.Email(email,titto)
+import Quid2.Util.HTTP(getURL)
 
 t = main
 
-x = checkServices [AService $ PortService "quid2.mooo.com" 22]
+-- Alternative to check services
+-- https://github.com/hspec/hspec-wai
+
+x = checkServices [AService $ WebService "quid2.org web" "http://quid2.org/js/quid2/ui/Tabs.js" "quid2.ui.Tab"] --[AService $ PortService "quid2.mooo.com" 22]
+
+g = getURL 3 "http://quid2.org/js/quid2/ui/Tabs.js"
 
 -- TODO: add sound warning.
 -- BUG: does not warn if backup or git fails (TO CHK: actually cron sends a message? that I ignore).
 
 main = do
   updateGlobalLogger rootLoggerName  (setLevel DEBUG)
-  
-  args <- getArgs    
+
+  args <- getArgs
   dbg $ "args " ++ show args
   case args !! 0 of
-    "check" -> do 
+    "check" -> do
       let cmd = if length args == 1 then "" else args !! 1
       case cmd of
         "" -> checkCmd False
         "andReport" -> checkCmd True
-        _ -> error $ "Unknown command: " ++ cmd 
-      
+        _ -> error $ "Unknown command: " ++ cmd
+
     -- "update" -> update
 
     backupDir -> do
     let cmd = if length args == 1 then "backup" else args !! 1
-    case cmd of          
-      "backup" -> backup backupDir 
-      "backupLocal" -> backupLocal backupDir    
+    case cmd of
+      "backup" -> backup backupDir
+      "backupLocal" -> backupLocal backupDir
       "bigBackup" -> bigBackup backupDir
-      _ -> error $ "Unknown command: " ++ cmd 
+      _ -> error $ "Unknown command: " ++ cmd
 
 checkCmd sendOK = do
   rs <- checkServices ss
   if length rs == 0
-    then when sendOK $ sendReport $ "OK. All services are up." 
-    else sendReport $ unwords ["PROBLEM.",concatMap (\(s,Just r) -> unwords ["\n",s,"->",r]) rs] 
-  
+    then when sendOK $ sendReport $ "OK. All services are up."
+    else sendReport $ unwords ["PROBLEM.",concatMap (\(s,Just r) -> unwords ["\n",s,"->",r]) rs]
+
 ss = [AService Quid2Service
      ,AService FinanceService
-     ,AService $ WebService "quid2.org web" "http://quid2.org/js/quid2/ui/Tabs.js" "quid2.ui.Tab"
+     --,AService $ WebService "quid2.org web" "http://quid2.org/js/quid2/ui/Tabs.js" "quid2.ui.Tab"
+    , quid2Com "quid2.org"
+    , quid2Com "quid2.com"
+    , quid2Com "quid2.biz"
+    , quid2Com "quid2.net"
+     ,quid2Com "quicquid.org"
+
+     ,AService $ WebService "nano web" "http://nano.quid2.org:8080" "Service quid2-titto"
      ,AService $ WebService "jslib.quicquid.org" "http://jslib.quicquid.org/Request.js" "Request.prototype.getURL"
      ,AService $ WebService "kamus.it" "http://kamus.it" "Assini's Family"
      ,AService $ WebService "massimoassini.quicquid.org" "http://massimoassini.quicquid.org" "figura femminile"
      ,AService $ WebService "ska.quicquid.org" "http://ska.quicquid.org/bottom.html" "PDF"
      --,AService $ PortService "quid2.mooo.com" 2
      ,AService $ PortService "quid2.com" 22
-     ,AService $ PortService "nano.quid2.com" 22      
+     ,AService $ PortService "nano.quid2.com" 22
      ]
+
+quid2Com n = AService $ WebService (n ++ " web") ("http://"++ n) "Sorry"
 
 -- Send error or ok message via Google Cloud Messaging for Android: requires a client side app.
 -- or gmail with desktop notification (works in android?)
@@ -88,7 +102,7 @@ sendReport = email titto "Quid2 Report"
 
 class Service s where
   name :: s -> String        -- Service name
-  check :: s -> IO (Maybe String) -- Nothing indicates that check passed, Maybe returns error 
+  check :: s -> IO (Maybe String) -- Nothing indicates that check passed, Maybe returns error
 
 data AService = forall a. Service a => AService a
 
@@ -100,42 +114,43 @@ data WebService = WebService {nameW::String,http::String,expected::String}
 
 instance Service WebService where
   name = nameW
-  
-  check s = urlHas (unwords ["Could not find ",expected s,"at",http s]) (http s) (expected s) 
+
+  check s = urlHas (unwords ["Could not find ",expected s,"at",http s]) (http s) (expected s)
 
 data FinanceService = FinanceService
 
 instance Service FinanceService where
   name _ = "finance.quicquid.org"
-  
+
   check _ = do
     msum <$> sequence (map chk ["ca256","sp500","us"])
       where
         chk n = do
-          now <- utctDay <$> getCurrentTime 
-          let url = concat ["http://finance.quicquid.org/data/events_data_",n,".js"]  
-          maybeContent <- getURL 45 url
+          now <- utctDay <$> getCurrentTime
+          let url = concat ["http://finance.quicquid.org/data/events_data_",n,".js"]
+          maybeContent <- getURL 30 url
           return $ case maybeContent of
             Left (err::SomeException) -> Just $ unwords ["Could not access url",url,"got",show err]
             Right c ->
               maybe (Just $ unwords ["Data for",n,"dataset missing."]) (\d -> if diffDays now d <= 4 then Nothing else Just $ unwords ["Data for",n,"dataset has not been updated."]) (between "date:'" "'" c >>= parseYYMMDD)
-                
+
 data Quid2Service = Quid2Service
 
 instance Service Quid2Service where
   name _ = "quid2 service"
-  
+
   check _ = do
-    m1 <- chk "http://quid2.org/api/send" "Method \"GET\" not supported" 
-    m2 <- chk "http://quid2.org/api/identity" "http://quid2.org/eval" 
+    -- m1 <- chk "http://quid2.org/api/send" "Method \"GET\" not supported"
+    m1 <- chk "http://quid2.org/index.html" "quid2.ui.Main"
+    m2 <- chk "http://quid2.org/api/identity" "http://quid2.org/eval"
     return $ mplus m1 m2
-      where chk = urlHas "API not working" 
+      where chk = urlHas "API not working"
 
 data PortService = PortService {sHost::String,sPort::Int} deriving Show
 
 instance Service PortService where
   name = show
-  
+
   check h = do
     let p = show (sPort h)
     portOpen <- isPortOpen p <$> (readShell $ concat ["nmap -p",p," -Pn ",sHost h])
@@ -148,7 +163,7 @@ isPortOpen :: String -> String -> Bool
 isPortOpen p = (== "open") . head . tail . words . head . filter (isPrefixOf $ p ++ "/tcp") . lines
 
 urlHas errMsg url expected  = do
-  t1 <- getURL 30 url
+  t1 <- getURL 15 url
   return $ case t1 of
       Left err -> Just $ unwords ["Could not access url",url,"got",show err]
       Right c  -> if isInfixOf expected c
@@ -158,13 +173,7 @@ urlHas errMsg url expected  = do
 parseYYMMDD :: String -> Maybe Day
 parseYYMMDD = parseTime defaultTimeLocale ("%Y-%m-%e")
 
-checkServices ss = filter (\(n,mv) -> isJust mv) <$> mapM (\s -> (name s,) <$> check s) ss 
-
-getURL :: Int -> String -> IO (Either SomeException String)
-getURL timeOutInSecs url = try $ timeOut (secs timeOutInSecs) $ do
-      rsp <- simpleHTTP (getRequest url)
-              -- fetch document and return it (as a 'String'.)
-      getResponseBody rsp
+checkServices ss = filter (\(n,mv) -> isJust mv) <$> mapM (\s -> (name s,) <$> check s) ss
 
 {- copy over from master server (BUG: hardwired ip)
 update = void $ mapM transfer ["quid2-user","quid2-store"]
@@ -175,44 +184,44 @@ update = void $ mapM transfer ["quid2-user","quid2-store"]
 -}
 
 bigBackup rootBackupDir = backup_ (rootBackupDir </> "big")   ["root@quid2.org:/home"]
-  
+
 backup rootBackupDir    = backup_ (rootBackupDir </> "small") ["root@quid2.org:/home/quid2-user/.quid2-user","root@quid2.org:/home/quid2-store/.quid2-store"]
-          
+
 backupLocal rootBackupDir    = backup_ (rootBackupDir </> "smallLocal") ["/home/quid2-user/.quid2-user","/home/quid2-store/.quid2-store"]
 
 backup_ rootBackupDir sourceDirs = do
-  now <- getCurrentTime 
+  now <- getCurrentTime
   let time = formatTime defaultTimeLocale ("%Y-%m-%d_%H_%M_%S") now
   let backupDir = rootBackupDir </> "quid2-backup"
-  createDirectoryIfMissing True backupDir         
-  gitted <- doesDirectoryExist $ backupDir </> ".git"     
-  when (not gitted) $ git backupDir ["init"] >> return () 
+  createDirectoryIfMissing True backupDir
+  gitted <- doesDirectoryExist $ backupDir </> ".git"
+  when (not gitted) $ git backupDir ["init"] >> return ()
   exitCodes <- mapM (\sourceDir -> runCmd ["rsync","-avz","--exclude=debug.txt","--delete","--rsh='ssh -p2222'",sourceDir,backupDir]) sourceDirs
   dbg $ "rsync result: " ++ show exitCodes
-  git backupDir ["add","-A","."]  
-  -- git backupDir ["status"]  
+  git backupDir ["add","-A","."]
+  -- git backupDir ["status"]
   void $ git backupDir ["commit","-m","'"++time++"'"]
-  -- git backupDir ["status"]  
+  -- git backupDir ["status"]
   -- git backupDir ["log","--stat"]
 
 git dir cmds = setCurrentDirectory dir >> runCmd ("git":cmds)
 
 {-
 backup2_ rootBackupDir sourceDirs = do
-  now <- getCurrentTime 
+  now <- getCurrentTime
   let time = formatTime defaultTimeLocale ("%Y-%m-%d_%H_%M_%S") now
   let backupDir = rootBackupDir </> "last"
-  let storeDir = rootBackupDir </> time     
-  createDirectoryIfMissing True backupDir   
-  exitCode <- runCmd ["rsync","-avz","--delete",sourceDirs,backupDir] --  
+  let storeDir = rootBackupDir </> time
+  createDirectoryIfMissing True backupDir
+  exitCode <- runCmd ["rsync","-avz","--delete",sourceDirs,backupDir] --
   dbg $ "rsync result: " ++ show exitCode
   -- runCmd []
   copyDirectoryRecursiveVerbose normal backupDir storeDir
 -}
 
 runCmd cmds = do
-  let cmd = unwords cmds 
-  dbg cmd      
-  runCommand cmd >>= waitForProcess 
-  
-dbg = debugM "Check"  
+  let cmd = unwords cmds
+  dbg cmd
+  runCommand cmd >>= waitForProcess
+
+dbg = debugM "Check"
