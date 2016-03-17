@@ -93,7 +93,7 @@ ss = [
      ,AService $ PortService "nano.quid2.com" 22
      ]
 
-quid2Com n = AService $ WebService (n ++ " web") ("http://"++ n) "Sorry"
+quid2Com n = AService $ WebService (n ++ " web") ("http://"++ n) "ideas, suggestions?"
 
 -- Send error or ok message via Google Cloud Messaging for Android: requires a client side app.
 -- or gmail with desktop notification (works in android?)
