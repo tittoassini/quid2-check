@@ -4,7 +4,7 @@ import System.Environment(getArgs)
 import System.Directory
 import System.FilePath
 import System.Process
-import System.Locale
+--import System.Locale
 import System.ShQQ
 -- import Quid2.Util.Log
 import System.Log.Logger
