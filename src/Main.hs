@@ -74,10 +74,10 @@ checkCmd sendOK = do
     else sendReport $ unwords ["PROBLEM.",concatMap (\(s,Just r) -> unwords ["\n",s,"->",r]) rs]
 
 ss = [
-     AService FinanceService
+     -- AService FinanceService
      --,AService Quid2Service
      --,AService $ WebService "quid2.org web" "http://quid2.org/js/quid2/ui/Tabs.js" "quid2.ui.Tab"
-     , quid2Com "quid2.org"
+     quid2Com "quid2.org"
      , quid2Com "quid2.com"
      , quid2Com "quid2.biz"
      , quid2Com "quid2.net"
