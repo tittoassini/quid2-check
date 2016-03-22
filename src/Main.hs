@@ -83,7 +83,7 @@ ss = [
      , quid2Com "quid2.net"
      ,quid2Com "quicquid.org"
 
-     ,AService $ WebService "nano web" "http://nano.quid2.org:8080" "Service quid2-titto"
+     ,AService $ WebService "nano web" "http://nano.quid2.org:9000" "Service quid2-titto"
      ,AService $ WebService "jslib.quicquid.org" "http://jslib.quicquid.org/Request.js" "Request.prototype.getURL"
      ,AService $ WebService "kamus.it" "http://kamus.it" "Assini's Family"
      ,AService $ WebService "massimoassini.quicquid.org" "http://massimoassini.quicquid.org" "figura femminile"
